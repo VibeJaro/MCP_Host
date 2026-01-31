@@ -24,7 +24,11 @@ export async function POST() {
   try {
     const result = await readMcpResource(resourceUri);
     const contents = result.contents ?? [];
-    const entry = contents.find((item) => item.text);
+    const isTextEntry = (
+      item: (typeof contents)[number]
+    ): item is { text: string; mimeType?: string } =>
+      typeof item === "object" && item !== null && "text" in item;
+    const entry = contents.find(isTextEntry);
     const html = entry?.text ?? "";
     if (!html) {
       return NextResponse.json({ error: "UI Ressource ist leer." }, { status: 502 });
