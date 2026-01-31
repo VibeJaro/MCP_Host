@@ -12,8 +12,8 @@ async function requestMcp(method: string, params: Record<string, unknown>): Prom
   const response = await fetch(serverUrl, {
     method: "POST",
     headers: {
-      "content-type": "application/json",
-      accept: "application/json, text/event-stream"
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream"
     },
     body: JSON.stringify({
       jsonrpc: "2.0",
