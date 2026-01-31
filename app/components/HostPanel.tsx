@@ -2,10 +2,6 @@
 
 import { useState } from "react";
 
-type Props = {
-  serverUrlMasked: string;
-};
-
 type ResponseState = {
   result: unknown;
   rawText: string;
@@ -13,7 +9,7 @@ type ResponseState = {
 
 const emptyState: ResponseState = { result: null, rawText: "" };
 
-export default function HostPanel({ serverUrlMasked }: Props) {
+export default function HostPanel() {
   const [rollState, setRollState] = useState<ResponseState>(emptyState);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -36,9 +32,7 @@ export default function HostPanel({ serverUrlMasked }: Props) {
       <h1>MCP Host</h1>
       <section>
         <h2>Status</h2>
-        <p>
-          MCP Server: <strong>{serverUrlMasked}</strong>
-        </p>
+        <p>MCP Server: Connected via server-side API</p>
       </section>
 
       <section>

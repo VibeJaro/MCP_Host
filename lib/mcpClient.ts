@@ -1,3 +1,5 @@
+import "server-only";
+
 type McpCallResult = {
   rawText: string;
   data: unknown;
