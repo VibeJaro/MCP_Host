@@ -1,0 +1,48 @@
+const MCP_SERVER_URL = process.env.MCP_SERVER_URL;
+
+function getServerUrl(): string {
+  if (!MCP_SERVER_URL) {
+    throw new Error("MCP_SERVER_URL is not set");
+  }
+  return MCP_SERVER_URL;
+}
+
+async function requestMcp(method: string, params: Record<string, unknown>): Promise<unknown> {
+  const serverUrl = getServerUrl();
+  const response = await fetch(serverUrl, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: crypto.randomUUID(),
+      method,
+      params
+    })
+  });
+
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`MCP request failed (${response.status}): ${text}`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error("MCP response was not valid JSON");
+  }
+}
+
+export async function callToolHelloWorld(): Promise<unknown> {
+  return requestMcp("tools/call", {
+    name: "hello_world",
+    arguments: {}
+  });
+}
+
+export async function readResource(resourceId: string): Promise<unknown> {
+  return requestMcp("resources/read", {
+    uri: resourceId
+  });
+}

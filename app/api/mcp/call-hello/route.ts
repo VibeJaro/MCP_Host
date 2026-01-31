@@ -1,0 +1,13 @@
+import { callToolHelloWorld } from "@/lib/mcpClient";
+import { extractTextFromMcpResponse } from "@/lib/mcpParsing";
+
+export async function POST() {
+  try {
+    const raw = await callToolHelloWorld();
+    const text = extractTextFromMcpResponse(raw);
+    return Response.json({ text, raw });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return Response.json({ text: "", raw: { error: message } }, { status: 500 });
+  }
+}
