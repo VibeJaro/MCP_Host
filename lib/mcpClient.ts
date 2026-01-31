@@ -7,13 +7,15 @@ function getServerUrl(): string {
   return MCP_SERVER_URL;
 }
 
+const MCP_ACCEPT_HEADER = "application/json, text/event-stream";
+
 async function requestMcp(method: string, params: Record<string, unknown>): Promise<unknown> {
   const serverUrl = getServerUrl();
   const response = await fetch(serverUrl, {
     method: "POST",
     headers: {
-      "content-type": "application/json",
-      accept: "application/json, text/event-stream"
+      Accept: MCP_ACCEPT_HEADER,
+      "Content-Type": "application/json"
     },
     body: JSON.stringify({
       jsonrpc: "2.0",
