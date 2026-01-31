@@ -38,3 +38,7 @@ Open `http://localhost:3000`.
 npm run build
 npm start
 ```
+
+## Vercel
+
+Deploy using the default Next.js framework settings (no custom output directory override).
