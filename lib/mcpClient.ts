@@ -13,7 +13,7 @@ async function requestMcp(method: string, params: Record<string, unknown>): Prom
     method: "POST",
     headers: {
       "content-type": "application/json",
-      accept: "application/json"
+      accept: "application/json, text/event-stream"
     },
     body: JSON.stringify({
       jsonrpc: "2.0",
