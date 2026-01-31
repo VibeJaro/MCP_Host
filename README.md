@@ -22,14 +22,14 @@ Open `http://localhost:3000`.
 ## API routes
 
 - `GET /api/health` → `{ ok: true }`
-- `POST /api/mcp/call-hello` → calls `hello_world` tool
+- `POST /api/mcp/roll-dice` → calls `roll_dice` tool
 - `GET /api/mcp/resource` → loads the MCP resource
 
 ## Test flow
 
 1. Set `MCP_SERVER_URL` in your environment.
 2. Start the dev server (`npm run dev`).
-3. Click **Call hello_world** to verify tool calls.
+3. Click **Roll dice** to verify tool calls.
 4. Click **Load MCP resource** to verify resource loading.
 
 ## Build
