@@ -7,40 +7,25 @@ type Props = {
 };
 
 type ResponseState = {
-  text: string;
-  raw: unknown;
+  result: unknown;
+  rawText: string;
 };
 
-const emptyState: ResponseState = { text: "", raw: null };
+const emptyState: ResponseState = { result: null, rawText: "" };
 
 export default function HostPanel({ serverUrlMasked }: Props) {
-  const [helloState, setHelloState] = useState<ResponseState>(emptyState);
-  const [resourceState, setResourceState] = useState<ResponseState>(emptyState);
+  const [rollState, setRollState] = useState<ResponseState>(emptyState);
   const [busy, setBusy] = useState<string | null>(null);
 
-  const callHello = async () => {
-    setBusy("hello");
+  const rollDice = async () => {
+    setBusy("roll");
     try {
-      const response = await fetch("/api/mcp/call-hello", { method: "POST" });
-      const data = (await response.json()) as ResponseState;
-      setHelloState({ text: data.text ?? "", raw: data.raw });
+      const response = await fetch("/api/mcp/roll-dice", { method: "POST" });
+      const data = (await response.json()) as { result?: unknown; rawText?: string };
+      setRollState({ result: data.result ?? null, rawText: data.rawText ?? "" });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      setHelloState({ text: "", raw: { error: message } });
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const loadResource = async () => {
-    setBusy("resource");
-    try {
-      const response = await fetch("/api/mcp/resource");
-      const data = (await response.json()) as { html?: string; raw?: unknown };
-      setResourceState({ text: data.html ?? "", raw: data.raw ?? null });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      setResourceState({ text: "", raw: { error: message } });
+      setRollState({ result: { error: message }, rawText: "" });
     } finally {
       setBusy(null);
     }
@@ -57,25 +42,14 @@ export default function HostPanel({ serverUrlMasked }: Props) {
       </section>
 
       <section>
-        <h2>Tool: hello_world</h2>
-        <button onClick={callHello} disabled={busy !== null}>
-          Call hello_world
+        <h2>Tool: roll_dice</h2>
+        <button onClick={rollDice} disabled={busy !== null}>
+          Roll dice
         </button>
-        <p>Response text:</p>
-        <pre>{helloState.text || "(no text)"}</pre>
-        <p>Raw response:</p>
-        <pre>{JSON.stringify(helloState.raw, null, 2)}</pre>
-      </section>
-
-      <section>
-        <h2>Resource: MCP App UI</h2>
-        <button onClick={loadResource} disabled={busy !== null}>
-          Load MCP resource
-        </button>
-        <p>HTML/Text:</p>
-        <pre>{resourceState.text || "(no html/text)"}</pre>
-        <p>Raw response:</p>
-        <pre>{JSON.stringify(resourceState.raw, null, 2)}</pre>
+        <p>Result:</p>
+        <pre>{JSON.stringify(rollState.result, null, 2) || "(no result)"}</pre>
+        <p>Raw text:</p>
+        <pre>{rollState.rawText || "(no raw text)"}</pre>
       </section>
     </main>
   );

@@ -7,9 +7,9 @@ export async function GET() {
   const resourceId = process.env.MCP_RESOURCE_ID ?? DEFAULT_RESOURCE_ID;
 
   try {
-    const raw = await readResource(resourceId);
-    const html = extractTextFromMcpResponse(raw);
-    return Response.json({ html, raw });
+    const result = await readResource(resourceId);
+    const html = extractTextFromMcpResponse(result.data);
+    return Response.json({ html, raw: result.data, rawText: result.rawText });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return Response.json({ html: "", raw: { error: message } }, { status: 500 });
