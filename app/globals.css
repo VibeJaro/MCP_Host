@@ -38,6 +38,29 @@ section {
   background: #141414;
 }
 
+label {
+  display: block;
+  margin: 12px 0;
+  font-weight: 600;
+}
+
+input,
+textarea {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid #3d3d3d;
+  border-radius: 6px;
+  background: #0f0f0f;
+  color: inherit;
+  font-family: inherit;
+}
+
+input[type="checkbox"] {
+  width: auto;
+  margin-right: 8px;
+}
+
 pre {
   white-space: pre-wrap;
   word-break: break-word;
