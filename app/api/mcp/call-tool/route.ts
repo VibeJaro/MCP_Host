@@ -1,6 +1,8 @@
 import { callTool } from "@/lib/mcpClient";
 import { extractTextFromMcpResponse, isRecord } from "@/lib/mcpParsing";
 
+export const dynamic = "force-dynamic";
+
 type RequestBody = {
   name?: string;
   arguments?: Record<string, unknown>;

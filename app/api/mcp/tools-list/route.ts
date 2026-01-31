@@ -1,5 +1,7 @@
 import { listTools } from "@/lib/mcpClient";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const raw = await listTools();

@@ -1,6 +1,8 @@
 import { callToolHelloWorld } from "@/lib/mcpClient";
 import { extractTextFromMcpResponse } from "@/lib/mcpParsing";
 
+export const dynamic = "force-dynamic";
+
 export async function POST() {
   try {
     const raw = await callToolHelloWorld();
