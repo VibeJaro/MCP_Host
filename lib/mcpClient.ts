@@ -1,48 +1,106 @@
-const MCP_SERVER_URL = process.env.MCP_SERVER_URL;
+type McpCallResult = {
+  rawText: string;
+  data: any;
+};
 
-function getServerUrl(): string {
-  if (!MCP_SERVER_URL) {
-    throw new Error("MCP_SERVER_URL is not set");
-  }
-  return MCP_SERVER_URL;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
-async function requestMcp(method: string, params: Record<string, unknown>): Promise<unknown> {
-  const serverUrl = getServerUrl();
+function parseSsePayload(rawText: string): unknown[] {
+  const lines = rawText.split(/\r?\n/);
+  const payloads: unknown[] = [];
+
+  for (const line of lines) {
+    if (!line.startsWith("data:")) {
+      continue;
+    }
+    const jsonText = line.replace(/^data:\s?/, "").trim();
+    if (!jsonText) {
+      continue;
+    }
+    try {
+      payloads.push(JSON.parse(jsonText));
+    } catch {
+      continue;
+    }
+  }
+
+  return payloads;
+}
+
+function getServerUrlError(): McpCallResult {
+  return {
+    rawText: "",
+    data: {
+      error: {
+        status: 500,
+        body: "MCP_SERVER_URL is not set"
+      }
+    }
+  };
+}
+
+export async function callMcp(method: string, params: unknown): Promise<McpCallResult> {
+  const serverUrl = process.env.MCP_SERVER_URL;
+  if (!serverUrl) {
+    return getServerUrlError();
+  }
+
   const response = await fetch(serverUrl, {
     method: "POST",
     headers: {
-      "content-type": "application/json"
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream"
     },
     body: JSON.stringify({
       jsonrpc: "2.0",
-      id: crypto.randomUUID(),
+      id: 1,
       method,
       params
     })
   });
 
-  const text = await response.text();
+  const rawText = await response.text();
   if (!response.ok) {
-    throw new Error(`MCP request failed (${response.status}): ${text}`);
+    return {
+      rawText,
+      data: {
+        error: {
+          status: response.status,
+          body: rawText.slice(0, 2000)
+        }
+      }
+    };
+  }
+
+  const shouldParseSse = rawText.includes("data:");
+  if (shouldParseSse) {
+    const payloads = parseSsePayload(rawText);
+    if (payloads.length > 0) {
+      return { rawText, data: payloads[payloads.length - 1] };
+    }
   }
 
   try {
-    return JSON.parse(text);
-  } catch (error) {
-    throw new Error("MCP response was not valid JSON");
+    const parsed = JSON.parse(rawText);
+    return { rawText, data: parsed };
+  } catch {
+    return {
+      rawText,
+      data: {
+        error: {
+          status: 502,
+          body: "Failed to parse MCP response as JSON."
+        }
+      }
+    };
   }
 }
 
-export async function callToolHelloWorld(): Promise<unknown> {
-  return requestMcp("tools/call", {
-    name: "hello_world",
-    arguments: {}
-  });
-}
-
-export async function readResource(resourceId: string): Promise<unknown> {
-  return requestMcp("resources/read", {
-    uri: resourceId
-  });
+export function extractResultValue(data: unknown): unknown {
+  if (isRecord(data) && "result" in data) {
+    return data.result;
+  }
+  return data;
 }

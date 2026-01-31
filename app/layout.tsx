@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 export const metadata = {
   title: "MCP Host",
-  description: "Minimal MCP host for tool/resource testing"
+  description: "Minimal MCP host for tool testing"
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
