@@ -31,7 +31,7 @@ export async function POST() {
     }
 
     const result = await callHelloWorldTool();
-    const contentItems = Array.isArray(result.content) ? result.content : [];
+    const contentItems: Array<unknown> = Array.isArray(result.content) ? result.content : [];
     const textContent = contentItems
       .filter(
         (item): item is { type: "text"; text: string } =>
