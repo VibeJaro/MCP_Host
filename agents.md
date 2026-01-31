@@ -1,56 +1,49 @@
-# agents.md
+# agents.md — MCP Host (Next.js)
 
-## Project: MCP Host Web App (Next.js + TypeScript)
+## Read-first
+- MUST read `MCP_Apps_spec.md` before editing code.
+- MUST follow the spec; never invent MCP APIs.
 
-### Goal
-Build a Vercel-deployable Next.js host application that can:
-1) show a simple chat UI
-2) connect to a remote MCP server (URL in env)
-3) load and render an MCP-Apps UI resource (hello_app_panel)
-4) allow triggering the MCP tool `hello_world` and display its result
+## Goal
+A minimal Next.js (App Router) host to test:
+1) MCP tool call `hello_world`
+2) MCP resource load (MCP Apps UI) by id (default: hello_app_panel)
 
-### Non-goals
-- No complex auth in this iteration
-- No database
-- No arbitrary code execution / no shell commands
+## Stability first
+- Code must compile on Vercel (`npm run build`).
+- Prefer runtime validation over fragile TypeScript unions.
 
-### Security constraints
-- Never expose secrets to the browser.
-- All API keys must be server-side only (Vercel env vars).
-- Validate request bodies on server routes.
-- Hard limits:
-  - /api/chat response <= 10 KB
-  - Any UI payload rendered <= 50 KB
-- Rate limit light for demo endpoints.
+## TypeScript rules
+- Treat remote JSON as `unknown`.
+- Use runtime checks:
+  - `typeof x === "object" && x !== null`
+  - `Array.isArray(x)`
+  - `"field" in obj`
+- Avoid narrow type predicates that omit required fields.
+  - If a type predicate is used, its asserted type MUST be assignable to the parameter type.
+- Limit `any` to a single isolated place if absolutely necessary.
 
-### Environment variables
-- OPENAI_API_KEY (optional; if absent, return deterministic dummy responses)
-- MCP_SERVER_URL (required to test MCP integration)
-- MCP_RESOURCE_ID (optional; default "hello_app_panel")
+## Routes
+- GET /api/health -> { ok: true }
+- POST /api/mcp/call-hello -> returns { text: string, raw: unknown }
+- GET /api/mcp/resource -> returns { html: string, raw: unknown }
 
-### Required routes
-- GET /api/health
-  - Returns { ok: true }
-  - Optionally checks MCP connectivity (HEAD/GET) without leaking details
-- POST /api/chat
-  - Validates input: { message: string }
-  - If OPENAI_API_KEY missing -> return dummy assistant text
-  - Else call OpenAI server-side
+## Env
+- MCP_SERVER_URL (required)
+- MCP_RESOURCE_ID (optional, default "hello_app_panel")
+- OPENAI_API_KEY (optional, not required for MCP tests)
 
-### MCP integration requirements
-- Provide a "Load MCP App" action in the UI that attempts to load the MCP resource by id.
-- Provide a fallback test button "Call hello_world" that calls the MCP tool directly and prints the result.
-- Do not invent protocol APIs. Prefer proven libraries/examples.
+## UI
+- A single page with:
+  - "Call hello_world" button
+  - "Load MCP resource" button
+  - Output area for text/html
+  - Debug raw JSON viewer
 
-### UX requirements
-- Single page: chat + MCP panel area.
-- Clear status indicators:
-  - MCP connected / error
-  - Last MCP response / last tool result
+## Security
+- No secrets in client.
+- Never print env vars fully.
+- No shell, no fs, no arbitrary network beyond MCP_SERVER_URL.
 
-### Deliverables checklist
-- [ ] Vercel deploy works with no local setup
-- [ ] README includes env setup + how to test
-- [ ] /api/health present
-- [ ] MCP tool call test works
-- [ ] MCP-Apps UI rendering works OR fallback host UI proves the server works
+## Deliverables
+- README with env vars + testing steps.
