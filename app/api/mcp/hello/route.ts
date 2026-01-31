@@ -31,8 +31,16 @@ export async function POST() {
     }
 
     const result = await callHelloWorldTool();
-    const textContent = result.content
-      ?.filter((item) => item.type === "text")
+    const contentItems = Array.isArray(result.content) ? result.content : [];
+    const textContent = contentItems
+      .filter(
+        (item): item is { type: "text"; text: string } =>
+          typeof item === "object" &&
+          item !== null &&
+          "type" in item &&
+          "text" in item &&
+          (item as { type?: string }).type === "text"
+      )
       .map((item) => item.text)
       .join("\n")
       .trim();
