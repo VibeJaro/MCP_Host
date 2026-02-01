@@ -7,7 +7,7 @@ Minimal Next.js (App Router) host for testing an MCP server.
 | Name | Required | Default | Description |
 | --- | --- | --- | --- |
 | `MCP_SERVER_URL` | ✅ | n/a | Base URL for your MCP server (e.g. `http://localhost:3001/mcp`). |
-| `MCP_RESOURCE_ID` | ❌ | `hello_app_panel` | Resource id/URI to load from the MCP server. |
+| `MCP_RESOURCE_ID` | ❌ | `ui://hello_app_panel` | Resource id/URI to load from the MCP server. |
 | `OPENAI_API_KEY` | ❌ | n/a | Not required for this project. |
 
 ## Local development

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+
+import { isRecord } from "@/lib/mcpParsing";
 
 type Props = {
   serverUrlMasked: string;
@@ -13,18 +15,62 @@ type ResponseState = {
 
 const emptyState: ResponseState = { text: "", raw: null };
 
+type ResourceState = {
+  html: string;
+  raw: unknown;
+  mimeType?: string;
+  uri?: string;
+};
+
+const emptyResourceState: ResourceState = { html: "", raw: null };
+
+type UiTool = {
+  name: string;
+  title?: string;
+  resourceUri: string;
+};
+
 export default function HostPanel({ serverUrlMasked }: Props) {
   const [helloState, setHelloState] = useState<ResponseState>(emptyState);
-  const [resourceState, setResourceState] = useState<ResponseState>(emptyState);
+  const [resourceState, setResourceState] = useState<ResourceState>(emptyResourceState);
   const [toolsListState, setToolsListState] = useState<ResponseState>(emptyState);
   const [resourcesListState, setResourcesListState] = useState<ResponseState>(emptyState);
   const [customToolState, setCustomToolState] = useState<ResponseState>(emptyState);
-  const [customResourceState, setCustomResourceState] = useState<ResponseState>(emptyState);
+  const [customResourceState, setCustomResourceState] = useState<ResourceState>(emptyResourceState);
+  const [uiTools, setUiTools] = useState<UiTool[]>([]);
+  const [selectedUiTool, setSelectedUiTool] = useState("");
+  const [selectedUiResourceUri, setSelectedUiResourceUri] = useState("");
+  const [uiResourceState, setUiResourceState] = useState<ResourceState>(emptyResourceState);
   const [busy, setBusy] = useState<string | null>(null);
   const [toolName, setToolName] = useState("hello_world");
   const [toolArgs, setToolArgs] = useState("{\n  \n}");
-  const [resourceUri, setResourceUri] = useState("hello_app_panel");
+  const [resourceUri, setResourceUri] = useState("ui://hello_app_panel");
   const [logToConsole, setLogToConsole] = useState(true);
+
+  const sandboxPermissions = useMemo(
+    () => ["allow-scripts", "allow-forms", "allow-modals", "allow-popups"].join(" "),
+    []
+  );
+
+  const extractUiTools = (raw: unknown): UiTool[] => {
+    if (!isRecord(raw)) {
+      return [];
+    }
+    const result = isRecord(raw.result) ? raw.result : undefined;
+    const tools = result && Array.isArray(result.tools) ? result.tools : [];
+    return tools
+      .filter(isRecord)
+      .map((tool) => {
+        const name = typeof tool.name === "string" ? tool.name : "";
+        const title = typeof tool.title === "string" ? tool.title : undefined;
+        const meta = isRecord(tool._meta) ? tool._meta : undefined;
+        const ui = meta && isRecord(meta.ui) ? meta.ui : undefined;
+        const resourceUri =
+          ui && typeof ui.resourceUri === "string" ? ui.resourceUri : "";
+        return { name, title, resourceUri };
+      })
+      .filter((tool) => tool.name && tool.resourceUri);
+  };
 
   const logDebug = (label: string, payload: unknown) => {
     if (logToConsole) {
@@ -51,12 +97,22 @@ export default function HostPanel({ serverUrlMasked }: Props) {
     setBusy("resource");
     try {
       const response = await fetch("/api/mcp/resource");
-      const data = (await response.json()) as { html?: string; raw?: unknown };
-      setResourceState({ text: data.html ?? "", raw: data.raw ?? null });
+      const data = (await response.json()) as {
+        html?: string;
+        raw?: unknown;
+        mimeType?: string;
+        uri?: string;
+      };
+      setResourceState({
+        html: data.html ?? "",
+        raw: data.raw ?? null,
+        mimeType: data.mimeType,
+        uri: data.uri
+      });
       logDebug("default resource response", data);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      setResourceState({ text: "", raw: { error: message } });
+      setResourceState({ html: "", raw: { error: message } });
     } finally {
       setBusy(null);
     }
@@ -69,6 +125,12 @@ export default function HostPanel({ serverUrlMasked }: Props) {
       const data = (await response.json()) as { raw?: unknown };
       const text = JSON.stringify(data.raw ?? null, null, 2);
       setToolsListState({ text, raw: data.raw ?? null });
+      const discoveredUiTools = extractUiTools(data.raw);
+      setUiTools(discoveredUiTools);
+      if (discoveredUiTools.length > 0) {
+        setSelectedUiTool((current) => current || discoveredUiTools[0].name);
+        setSelectedUiResourceUri((current) => current || discoveredUiTools[0].resourceUri);
+      }
       logDebug("tools/list response", data);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -125,15 +187,92 @@ export default function HostPanel({ serverUrlMasked }: Props) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ uri: resourceUri })
       });
-      const data = (await response.json()) as { html?: string; raw?: unknown };
-      setCustomResourceState({ text: data.html ?? "", raw: data.raw ?? null });
+      const data = (await response.json()) as {
+        html?: string;
+        raw?: unknown;
+        mimeType?: string;
+        uri?: string;
+      };
+      setCustomResourceState({
+        html: data.html ?? "",
+        raw: data.raw ?? null,
+        mimeType: data.mimeType,
+        uri: data.uri
+      });
       logDebug("custom resource response", { request: { uri: resourceUri }, data });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      setCustomResourceState({ text: "", raw: { error: message } });
+      setCustomResourceState({ html: "", raw: { error: message } });
     } finally {
       setBusy(null);
     }
+  };
+
+  const loadUiResource = async () => {
+    if (!selectedUiResourceUri) {
+      setUiResourceState({ html: "", raw: { error: "No UI resource selected" } });
+      return;
+    }
+    setBusy("ui-resource");
+    try {
+      const response = await fetch("/api/mcp/read-resource", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ uri: selectedUiResourceUri })
+      });
+      const data = (await response.json()) as {
+        html?: string;
+        raw?: unknown;
+        mimeType?: string;
+        uri?: string;
+      };
+      setUiResourceState({
+        html: data.html ?? "",
+        raw: data.raw ?? null,
+        mimeType: data.mimeType,
+        uri: data.uri
+      });
+      logDebug("ui resource response", { request: { uri: selectedUiResourceUri }, data });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setUiResourceState({ html: "", raw: { error: message } });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const updateSelectedUiTool = (name: string) => {
+    setSelectedUiTool(name);
+    const match = uiTools.find((tool) => tool.name === name);
+    if (match) {
+      setSelectedUiResourceUri(match.resourceUri);
+    }
+  };
+
+  const renderAppPreview = (state: ResourceState, emptyLabel: string) => {
+    if (!state.html) {
+      return <p>{emptyLabel}</p>;
+    }
+
+    if (!state.mimeType?.toLowerCase().includes("text/html")) {
+      return (
+        <div>
+          <p>Received non-HTML content (mimeType: {state.mimeType ?? "unknown"}).</p>
+          <pre>{state.html}</pre>
+        </div>
+      );
+    }
+
+    return (
+      <div className="app-preview">
+        <iframe
+          title="MCP App Preview"
+          sandbox={sandboxPermissions}
+          referrerPolicy="no-referrer"
+          srcDoc={state.html}
+        />
+      </div>
+    );
   };
 
   return (
@@ -162,8 +301,22 @@ export default function HostPanel({ serverUrlMasked }: Props) {
         <button onClick={loadResource} disabled={busy !== null}>
           Load MCP resource
         </button>
+        <p>Preview:</p>
+        {renderAppPreview(resourceState, "(no html/text)")}
         <p>HTML/Text:</p>
-        <pre>{resourceState.text || "(no html/text)"}</pre>
+        <pre>{resourceState.html || "(no html/text)"}</pre>
+        <p>Resource metadata:</p>
+        <pre>
+          {JSON.stringify(
+            {
+              mimeType: resourceState.mimeType ?? null,
+              uri: resourceState.uri ?? null,
+              size: resourceState.html.length
+            },
+            null,
+            2
+          )}
+        </pre>
         <p>Raw response:</p>
         <pre>{JSON.stringify(resourceState.raw, null, 2)}</pre>
       </section>
@@ -182,6 +335,55 @@ export default function HostPanel({ serverUrlMasked }: Props) {
           Use the controls below to inspect tools/resources, call custom tools, and read custom
           resources. Errors and raw JSON-RPC payloads will show in the output blocks.
         </p>
+      </section>
+
+      <section>
+        <h2>Interactive App Preview</h2>
+        <p>
+          Pick a tool that advertises a UI resource via <code>_meta.ui.resourceUri</code> and load
+          it into a sandboxed iframe for inspection.
+        </p>
+        <label>
+          Tool with UI metadata
+          <select
+            value={selectedUiTool}
+            onChange={(event) => updateSelectedUiTool(event.target.value)}
+          >
+            <option value="">(fetch tools/list first)</option>
+            {uiTools.map((tool) => (
+              <option key={tool.name} value={tool.name}>
+                {tool.title ? `${tool.title} (${tool.name})` : tool.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          UI resource URI
+          <input
+            type="text"
+            value={selectedUiResourceUri}
+            onChange={(event) => setSelectedUiResourceUri(event.target.value)}
+          />
+        </label>
+        <button onClick={loadUiResource} disabled={busy !== null}>
+          Load UI resource
+        </button>
+        <p>Preview:</p>
+        {renderAppPreview(uiResourceState, "(no UI resource loaded)")}
+        <p>Resource metadata:</p>
+        <pre>
+          {JSON.stringify(
+            {
+              mimeType: uiResourceState.mimeType ?? null,
+              uri: uiResourceState.uri ?? null,
+              size: uiResourceState.html.length
+            },
+            null,
+            2
+          )}
+        </pre>
+        <p>Raw response:</p>
+        <pre>{JSON.stringify(uiResourceState.raw, null, 2)}</pre>
       </section>
 
       <section>
@@ -232,7 +434,7 @@ export default function HostPanel({ serverUrlMasked }: Props) {
       <section>
         <h2>Read custom resource</h2>
         <label>
-          Resource URI
+          Resource URI (e.g., ui://hello_app_panel)
           <input
             type="text"
             value={resourceUri}
@@ -242,8 +444,22 @@ export default function HostPanel({ serverUrlMasked }: Props) {
         <button onClick={readCustomResource} disabled={busy !== null}>
           Read resource
         </button>
+        <p>Preview:</p>
+        {renderAppPreview(customResourceState, "(no html/text)")}
         <p>HTML/Text:</p>
-        <pre>{customResourceState.text || "(no html/text)"}</pre>
+        <pre>{customResourceState.html || "(no html/text)"}</pre>
+        <p>Resource metadata:</p>
+        <pre>
+          {JSON.stringify(
+            {
+              mimeType: customResourceState.mimeType ?? null,
+              uri: customResourceState.uri ?? null,
+              size: customResourceState.html.length
+            },
+            null,
+            2
+          )}
+        </pre>
         <p>Raw response:</p>
         <pre>{JSON.stringify(customResourceState.raw, null, 2)}</pre>
       </section>
