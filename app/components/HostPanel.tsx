@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Props = {
   serverUrlMasked: string;
@@ -11,7 +11,22 @@ type ResponseState = {
   raw: unknown;
 };
 
+type AppViewerState = {
+  html: string;
+  source: string;
+  uri?: string;
+  updatedAt?: string;
+};
+
+type MessageLogEntry = {
+  direction: "incoming" | "outgoing";
+  timestamp: string;
+  origin: string;
+  data: unknown;
+};
+
 const emptyState: ResponseState = { text: "", raw: null };
+const emptyAppViewer: AppViewerState = { html: "", source: "none" };
 
 export default function HostPanel({ serverUrlMasked }: Props) {
   const [helloState, setHelloState] = useState<ResponseState>(emptyState);
@@ -25,6 +40,20 @@ export default function HostPanel({ serverUrlMasked }: Props) {
   const [toolArgs, setToolArgs] = useState("{\n  \n}");
   const [resourceUri, setResourceUri] = useState("hello_app_panel");
   const [logToConsole, setLogToConsole] = useState(true);
+  const [appViewer, setAppViewer] = useState<AppViewerState>(emptyAppViewer);
+  const [relaxSandbox, setRelaxSandbox] = useState(false);
+  const [showHtmlPreview, setShowHtmlPreview] = useState(true);
+  const [messageLog, setMessageLog] = useState<MessageLogEntry[]>([]);
+  const [outgoingMessage, setOutgoingMessage] = useState("{\n  \n}");
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  const sandboxPermissions = useMemo(() => {
+    const base = ["allow-scripts", "allow-forms", "allow-modals", "allow-popups", "allow-downloads"];
+    if (relaxSandbox) {
+      base.push("allow-same-origin");
+    }
+    return base.join(" ");
+  }, [relaxSandbox]);
 
   const logDebug = (label: string, payload: unknown) => {
     if (logToConsole) {
@@ -53,6 +82,12 @@ export default function HostPanel({ serverUrlMasked }: Props) {
       const response = await fetch("/api/mcp/resource");
       const data = (await response.json()) as { html?: string; raw?: unknown };
       setResourceState({ text: data.html ?? "", raw: data.raw ?? null });
+      setAppViewer({
+        html: data.html ?? "",
+        source: "default resource",
+        uri: undefined,
+        updatedAt: new Date().toISOString()
+      });
       logDebug("default resource response", data);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -127,6 +162,12 @@ export default function HostPanel({ serverUrlMasked }: Props) {
       });
       const data = (await response.json()) as { html?: string; raw?: unknown };
       setCustomResourceState({ text: data.html ?? "", raw: data.raw ?? null });
+      setAppViewer({
+        html: data.html ?? "",
+        source: "custom resource",
+        uri: resourceUri,
+        updatedAt: new Date().toISOString()
+      });
       logDebug("custom resource response", { request: { uri: resourceUri }, data });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -135,6 +176,60 @@ export default function HostPanel({ serverUrlMasked }: Props) {
       setBusy(null);
     }
   };
+
+  const handleSendMessage = () => {
+    if (!iframeRef.current?.contentWindow) {
+      return;
+    }
+    const trimmed = outgoingMessage.trim();
+    if (!trimmed) {
+      return;
+    }
+    let payload: unknown = trimmed;
+    try {
+      payload = JSON.parse(trimmed);
+    } catch {
+      payload = trimmed;
+    }
+    iframeRef.current.contentWindow.postMessage(payload, "*");
+    setMessageLog((prev) => [
+      {
+        direction: "outgoing",
+        timestamp: new Date().toISOString(),
+        origin: window.location.origin,
+        data: payload
+      },
+      ...prev
+    ]);
+    logDebug("postMessage sent", payload);
+  };
+
+  const openInNewTab = () => {
+    if (!appViewer.html) {
+      return;
+    }
+    const blob = new Blob([appViewer.html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer");
+    logDebug("opened MCP app in new tab", { url });
+  };
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      setMessageLog((prev) => [
+        {
+          direction: "incoming",
+          timestamp: new Date().toISOString(),
+          origin: event.origin,
+          data: event.data
+        },
+        ...prev
+      ]);
+      logDebug("postMessage received", { origin: event.origin, data: event.data });
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [logToConsole]);
 
   return (
     <main>
@@ -166,6 +261,73 @@ export default function HostPanel({ serverUrlMasked }: Props) {
         <pre>{resourceState.text || "(no html/text)"}</pre>
         <p>Raw response:</p>
         <pre>{JSON.stringify(resourceState.raw, null, 2)}</pre>
+      </section>
+
+      <section>
+        <h2>MCP App Viewer</h2>
+        <p>
+          Rendered from: <strong>{appViewer.source}</strong>
+          {appViewer.uri ? ` (${appViewer.uri})` : ""}{" "}
+          {appViewer.updatedAt ? `— updated ${appViewer.updatedAt}` : ""}
+        </p>
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+          <label>
+            <input
+              type="checkbox"
+              checked={relaxSandbox}
+              onChange={(event) => setRelaxSandbox(event.target.checked)}
+            />
+            Relax sandbox (allow-same-origin)
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={showHtmlPreview}
+              onChange={(event) => setShowHtmlPreview(event.target.checked)}
+            />
+            Show HTML preview
+          </label>
+          <button onClick={() => setMessageLog([])} disabled={messageLog.length === 0}>
+            Clear message log
+          </button>
+          <button onClick={openInNewTab} disabled={!appViewer.html}>
+            Open in new tab
+          </button>
+        </div>
+        <p>Sandbox: {sandboxPermissions || "(none)"}</p>
+        <div style={{ border: "1px solid #ccc", borderRadius: 8, overflow: "hidden" }}>
+          {appViewer.html ? (
+            <iframe
+              key={`${appViewer.source}-${appViewer.updatedAt ?? "idle"}`}
+              ref={iframeRef}
+              sandbox={sandboxPermissions}
+              srcDoc={appViewer.html}
+              title="MCP App Viewer"
+              style={{ width: "100%", minHeight: 320, border: "none" }}
+            />
+          ) : (
+            <div style={{ padding: "1rem" }}>Load a resource to render its UI.</div>
+          )}
+        </div>
+        {showHtmlPreview ? (
+          <>
+            <p>HTML Preview:</p>
+            <pre>{appViewer.html || "(no html/text)"}</pre>
+          </>
+        ) : null}
+        <p>postMessage log:</p>
+        <pre>{messageLog.length ? JSON.stringify(messageLog, null, 2) : "(no messages yet)"}</pre>
+        <label>
+          Send postMessage payload (JSON or text)
+          <textarea
+            rows={5}
+            value={outgoingMessage}
+            onChange={(event) => setOutgoingMessage(event.target.value)}
+          />
+        </label>
+        <button onClick={handleSendMessage} disabled={!appViewer.html}>
+          Send message to iframe
+        </button>
       </section>
 
       <section>
