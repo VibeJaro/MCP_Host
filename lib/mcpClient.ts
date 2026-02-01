@@ -1,10 +1,13 @@
 const MCP_SERVER_URL = process.env.MCP_SERVER_URL;
+const DASHBOARD_MCP_SERVER_URL =
+  process.env.DASHBOARD_MCP_SERVER_URL ?? "https://dashboard-mcp.vercel.app/api/mcp";
+const DASHBOARD_RESOURCE_URI = "ui://dashboard_mcp/hello";
 
-function getServerUrl(): string {
-  if (!MCP_SERVER_URL) {
-    throw new Error("MCP_SERVER_URL is not set");
+function getServerUrl(value: string | undefined, label: string): string {
+  if (!value) {
+    throw new Error(`${label} is not set`);
   }
-  return MCP_SERVER_URL;
+  return value;
 }
 
 const MCP_ACCEPT_HEADER = "application/json, text/event-stream";
@@ -27,8 +30,11 @@ function parseMcpResponse(payload: string, contentType: string | null): unknown 
   return JSON.parse(payload);
 }
 
-async function requestMcp(method: string, params: Record<string, unknown>): Promise<unknown> {
-  const serverUrl = getServerUrl();
+async function requestMcpAt(
+  serverUrl: string,
+  method: string,
+  params: Record<string, unknown>
+): Promise<unknown> {
   const headers = new Headers();
   headers.set("Accept", MCP_ACCEPT_HEADER);
   headers.set("Content-Type", "application/json");
@@ -54,6 +60,21 @@ async function requestMcp(method: string, params: Record<string, unknown>): Prom
   } catch (error) {
     throw new Error("MCP response was not valid JSON");
   }
+}
+
+async function requestMcp(method: string, params: Record<string, unknown>): Promise<unknown> {
+  return requestMcpAt(getServerUrl(MCP_SERVER_URL, "MCP_SERVER_URL"), method, params);
+}
+
+async function requestDashboardMcp(
+  method: string,
+  params: Record<string, unknown>
+): Promise<unknown> {
+  return requestMcpAt(
+    getServerUrl(DASHBOARD_MCP_SERVER_URL, "DASHBOARD_MCP_SERVER_URL"),
+    method,
+    params
+  );
 }
 
 export async function callToolHelloWorld(): Promise<unknown> {
@@ -82,4 +103,17 @@ export async function listTools(): Promise<unknown> {
 
 export async function listResources(): Promise<unknown> {
   return requestMcp("resources/list", {});
+}
+
+export async function callDashboardHelloTool(): Promise<unknown> {
+  return requestDashboardMcp("tools/call", {
+    name: "dashboard_mcp_hello",
+    arguments: {}
+  });
+}
+
+export async function readDashboardHelloResource(): Promise<unknown> {
+  return requestDashboardMcp("resources/read", {
+    uri: DASHBOARD_RESOURCE_URI
+  });
 }
