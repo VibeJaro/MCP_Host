@@ -1,6 +1,10 @@
 import { readResource } from "@/lib/mcpClient";
 import { extractMcpContents, extractTextFromMcpResponse } from "@/lib/mcpParsing";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const runtime = "nodejs";
+
 const DEFAULT_RESOURCE_ID = "hello_app_panel";
 
 export async function GET() {
