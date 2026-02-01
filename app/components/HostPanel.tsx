@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Props = {
   serverUrlMasked: string;
@@ -11,7 +11,95 @@ type ResponseState = {
   raw: unknown;
 };
 
+type AppMessage = {
+  id: string;
+  timestamp: string;
+  origin: string;
+  data: unknown;
+};
+
 const emptyState: ResponseState = { text: "", raw: null };
+
+const MAX_APP_MESSAGES = 50;
+
+function McpAppViewer({
+  html,
+  label,
+  logToConsole
+}: {
+  html: string;
+  label: string;
+  logToConsole: boolean;
+}) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [messages, setMessages] = useState<AppMessage[]>([]);
+
+  const formattedMessages = useMemo(() => {
+    if (messages.length === 0) {
+      return "(no messages yet)";
+    }
+    return JSON.stringify(messages, null, 2);
+  }, [messages]);
+
+  useEffect(() => {
+    setMessages([]);
+  }, [html]);
+
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (!iframeRef.current?.contentWindow) {
+        return;
+      }
+      if (event.source !== iframeRef.current.contentWindow) {
+        return;
+      }
+
+      const entry: AppMessage = {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        timestamp: new Date().toISOString(),
+        origin: event.origin,
+        data: event.data
+      };
+
+      setMessages((prev) => [entry, ...prev].slice(0, MAX_APP_MESSAGES));
+
+      if (logToConsole) {
+        console.log(`[MCP App Message] ${label}`, entry);
+      }
+    };
+
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [label, logToConsole]);
+
+  if (!html) {
+    return <p>(no MCP App HTML to render yet)</p>;
+  }
+
+  return (
+    <div className="app-viewer">
+      <div className="app-viewer__toolbar">
+        <button type="button" onClick={() => setReloadKey((value) => value + 1)}>
+          Reload iframe
+        </button>
+        <button type="button" onClick={() => setMessages([])}>
+          Clear messages
+        </button>
+      </div>
+      <iframe
+        ref={iframeRef}
+        key={reloadKey}
+        title={`${label} MCP App`}
+        className="app-viewer__frame"
+        sandbox="allow-scripts allow-forms allow-modals allow-popups"
+        srcDoc={html}
+      />
+      <p>postMessage debug log:</p>
+      <pre className="app-viewer__log">{formattedMessages}</pre>
+    </div>
+  );
+}
 
 export default function HostPanel({ serverUrlMasked }: Props) {
   const [helloState, setHelloState] = useState<ResponseState>(emptyState);
@@ -164,6 +252,8 @@ export default function HostPanel({ serverUrlMasked }: Props) {
         </button>
         <p>HTML/Text:</p>
         <pre>{resourceState.text || "(no html/text)"}</pre>
+        <p>Interactive preview:</p>
+        <McpAppViewer html={resourceState.text} label="Default MCP App" logToConsole={logToConsole} />
         <p>Raw response:</p>
         <pre>{JSON.stringify(resourceState.raw, null, 2)}</pre>
       </section>
@@ -244,6 +334,12 @@ export default function HostPanel({ serverUrlMasked }: Props) {
         </button>
         <p>HTML/Text:</p>
         <pre>{customResourceState.text || "(no html/text)"}</pre>
+        <p>Interactive preview:</p>
+        <McpAppViewer
+          html={customResourceState.text}
+          label="Custom MCP App"
+          logToConsole={logToConsole}
+        />
         <p>Raw response:</p>
         <pre>{JSON.stringify(customResourceState.raw, null, 2)}</pre>
       </section>
