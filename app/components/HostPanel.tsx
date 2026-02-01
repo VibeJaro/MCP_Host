@@ -6,6 +6,7 @@ import { isRecord } from "@/lib/mcpParsing";
 
 type Props = {
   serverUrlMasked: string;
+  dashboardServerUrlMasked: string;
 };
 
 type ResponseState = {
@@ -30,9 +31,12 @@ type UiTool = {
   resourceUri: string;
 };
 
-export default function HostPanel({ serverUrlMasked }: Props) {
+export default function HostPanel({ serverUrlMasked, dashboardServerUrlMasked }: Props) {
   const [helloState, setHelloState] = useState<ResponseState>(emptyState);
   const [resourceState, setResourceState] = useState<ResourceState>(emptyResourceState);
+  const [dashboardHelloState, setDashboardHelloState] = useState<ResponseState>(emptyState);
+  const [dashboardResourceState, setDashboardResourceState] =
+    useState<ResourceState>(emptyResourceState);
   const [toolsListState, setToolsListState] = useState<ResponseState>(emptyState);
   const [resourcesListState, setResourcesListState] = useState<ResponseState>(emptyState);
   const [customToolState, setCustomToolState] = useState<ResponseState>(emptyState);
@@ -88,6 +92,37 @@ export default function HostPanel({ serverUrlMasked }: Props) {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       setHelloState({ text: "", raw: { error: message } });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const loadDashboardHelloUi = async () => {
+    setBusy("dashboard-hello");
+    try {
+      const helloResponse = await fetch("/api/mcp/dashboard/hello", { method: "POST" });
+      const helloData = (await helloResponse.json()) as ResponseState;
+      setDashboardHelloState({ text: helloData.text ?? "", raw: helloData.raw });
+      logDebug("dashboard_mcp_hello response", helloData);
+
+      const resourceResponse = await fetch("/api/mcp/dashboard/resource");
+      const resourceData = (await resourceResponse.json()) as {
+        html?: string;
+        raw?: unknown;
+        mimeType?: string;
+        uri?: string;
+      };
+      setDashboardResourceState({
+        html: resourceData.html ?? "",
+        raw: resourceData.raw ?? null,
+        mimeType: resourceData.mimeType,
+        uri: resourceData.uri
+      });
+      logDebug("dashboard ui resource response", resourceData);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setDashboardHelloState({ text: "", raw: { error: message } });
+      setDashboardResourceState({ html: "", raw: { error: message } });
     } finally {
       setBusy(null);
     }
@@ -283,6 +318,9 @@ export default function HostPanel({ serverUrlMasked }: Props) {
         <p>
           MCP Server: <strong>{serverUrlMasked}</strong>
         </p>
+        <p>
+          Dashboard MCP Server: <strong>{dashboardServerUrlMasked}</strong>
+        </p>
       </section>
 
       <section>
@@ -294,6 +332,33 @@ export default function HostPanel({ serverUrlMasked }: Props) {
         <pre>{helloState.text || "(no text)"}</pre>
         <p>Raw response:</p>
         <pre>{JSON.stringify(helloState.raw, null, 2)}</pre>
+      </section>
+
+      <section>
+        <h2>Tool: dashboard_mcp_hello</h2>
+        <button onClick={loadDashboardHelloUi} disabled={busy !== null}>
+          Load dashboard_mcp_hello + UI
+        </button>
+        <p>Response text:</p>
+        <pre>{dashboardHelloState.text || "(no text)"}</pre>
+        <p>Raw response:</p>
+        <pre>{JSON.stringify(dashboardHelloState.raw, null, 2)}</pre>
+        <p>Preview:</p>
+        {renderAppPreview(dashboardResourceState, "(no html/text)")}
+        <p>Resource metadata:</p>
+        <pre>
+          {JSON.stringify(
+            {
+              mimeType: dashboardResourceState.mimeType ?? null,
+              uri: dashboardResourceState.uri ?? null,
+              size: dashboardResourceState.html.length
+            },
+            null,
+            2
+          )}
+        </pre>
+        <p>Raw resource response:</p>
+        <pre>{JSON.stringify(dashboardResourceState.raw, null, 2)}</pre>
       </section>
 
       <section>
