@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+
+import type { McpContentItem } from "@/lib/mcpParsing";
 
 type Props = {
   serverUrlMasked: string;
@@ -11,15 +13,22 @@ type ResponseState = {
   raw: unknown;
 };
 
+type ResourceState = {
+  text: string;
+  raw: unknown;
+  contents: McpContentItem[];
+};
+
 const emptyState: ResponseState = { text: "", raw: null };
+const emptyResourceState: ResourceState = { text: "", raw: null, contents: [] };
 
 export default function HostPanel({ serverUrlMasked }: Props) {
   const [helloState, setHelloState] = useState<ResponseState>(emptyState);
-  const [resourceState, setResourceState] = useState<ResponseState>(emptyState);
+  const [resourceState, setResourceState] = useState<ResourceState>(emptyResourceState);
   const [toolsListState, setToolsListState] = useState<ResponseState>(emptyState);
   const [resourcesListState, setResourcesListState] = useState<ResponseState>(emptyState);
   const [customToolState, setCustomToolState] = useState<ResponseState>(emptyState);
-  const [customResourceState, setCustomResourceState] = useState<ResponseState>(emptyState);
+  const [customResourceState, setCustomResourceState] = useState<ResourceState>(emptyResourceState);
   const [busy, setBusy] = useState<string | null>(null);
   const [toolName, setToolName] = useState("hello_world");
   const [toolArgs, setToolArgs] = useState("{\n  \n}");
@@ -51,12 +60,20 @@ export default function HostPanel({ serverUrlMasked }: Props) {
     setBusy("resource");
     try {
       const response = await fetch("/api/mcp/resource");
-      const data = (await response.json()) as { html?: string; raw?: unknown };
-      setResourceState({ text: data.html ?? "", raw: data.raw ?? null });
+      const data = (await response.json()) as {
+        html?: string;
+        raw?: unknown;
+        contents?: McpContentItem[];
+      };
+      setResourceState({
+        text: data.html ?? "",
+        raw: data.raw ?? null,
+        contents: data.contents ?? []
+      });
       logDebug("default resource response", data);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      setResourceState({ text: "", raw: { error: message } });
+      setResourceState({ text: "", raw: { error: message }, contents: [] });
     } finally {
       setBusy(null);
     }
@@ -125,16 +142,27 @@ export default function HostPanel({ serverUrlMasked }: Props) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ uri: resourceUri })
       });
-      const data = (await response.json()) as { html?: string; raw?: unknown };
-      setCustomResourceState({ text: data.html ?? "", raw: data.raw ?? null });
+      const data = (await response.json()) as {
+        html?: string;
+        raw?: unknown;
+        contents?: McpContentItem[];
+      };
+      setCustomResourceState({
+        text: data.html ?? "",
+        raw: data.raw ?? null,
+        contents: data.contents ?? []
+      });
       logDebug("custom resource response", { request: { uri: resourceUri }, data });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      setCustomResourceState({ text: "", raw: { error: message } });
+      setCustomResourceState({ text: "", raw: { error: message }, contents: [] });
     } finally {
       setBusy(null);
     }
   };
+
+  const defaultResourcePreview = useMemo(() => toHtmlPreview(resourceState), [resourceState]);
+  const customResourcePreview = useMemo(() => toHtmlPreview(customResourceState), [customResourceState]);
 
   return (
     <main>
@@ -164,6 +192,10 @@ export default function HostPanel({ serverUrlMasked }: Props) {
         </button>
         <p>HTML/Text:</p>
         <pre>{resourceState.text || "(no html/text)"}</pre>
+        <p>Parsed contents:</p>
+        <pre>{JSON.stringify(resourceState.contents, null, 2)}</pre>
+        <p>Interactive preview:</p>
+        {defaultResourcePreview}
         <p>Raw response:</p>
         <pre>{JSON.stringify(resourceState.raw, null, 2)}</pre>
       </section>
@@ -244,9 +276,32 @@ export default function HostPanel({ serverUrlMasked }: Props) {
         </button>
         <p>HTML/Text:</p>
         <pre>{customResourceState.text || "(no html/text)"}</pre>
+        <p>Parsed contents:</p>
+        <pre>{JSON.stringify(customResourceState.contents, null, 2)}</pre>
+        <p>Interactive preview:</p>
+        {customResourcePreview}
         <p>Raw response:</p>
         <pre>{JSON.stringify(customResourceState.raw, null, 2)}</pre>
       </section>
     </main>
+  );
+}
+
+function toHtmlPreview(state: ResourceState) {
+  const html = state.text?.trim() ?? "";
+  if (!html) {
+    return <p>(no HTML to render)</p>;
+  }
+
+  const isHtmlLike = /<!doctype html|<html[\s>]|<body[\s>]/i.test(html);
+  const title = isHtmlLike ? "MCP App preview" : "Resource preview";
+
+  return (
+    <iframe
+      title={title}
+      srcDoc={html}
+      sandbox="allow-scripts allow-forms allow-popups"
+      style={{ width: "100%", minHeight: "360px", border: "1px solid #ccc" }}
+    />
   );
 }

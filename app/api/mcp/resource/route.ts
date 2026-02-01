@@ -1,5 +1,5 @@
 import { readResource } from "@/lib/mcpClient";
-import { extractTextFromMcpResponse } from "@/lib/mcpParsing";
+import { extractMcpContents, extractTextFromMcpResponse } from "@/lib/mcpParsing";
 
 const DEFAULT_RESOURCE_ID = "hello_app_panel";
 
@@ -9,9 +9,10 @@ export async function GET() {
   try {
     const raw = await readResource(resourceId);
     const html = extractTextFromMcpResponse(raw);
-    return Response.json({ html, raw });
+    const contents = extractMcpContents(raw);
+    return Response.json({ html, contents, raw });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    return Response.json({ html: "", raw: { error: message } }, { status: 500 });
+    return Response.json({ html: "", contents: [], raw: { error: message } }, { status: 500 });
   }
 }
