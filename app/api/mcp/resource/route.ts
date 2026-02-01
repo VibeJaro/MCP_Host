@@ -3,7 +3,7 @@ import { extractHtmlFromMcpResponse } from "@/lib/mcpParsing";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_RESOURCE_ID = "hello_app_panel";
+const DEFAULT_RESOURCE_ID = "ui://hello_app_panel";
 
 export async function GET() {
   const resourceId = process.env.MCP_RESOURCE_ID ?? DEFAULT_RESOURCE_ID;

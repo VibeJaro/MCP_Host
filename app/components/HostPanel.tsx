@@ -44,7 +44,7 @@ export default function HostPanel({ serverUrlMasked }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [toolName, setToolName] = useState("hello_world");
   const [toolArgs, setToolArgs] = useState("{\n  \n}");
-  const [resourceUri, setResourceUri] = useState("hello_app_panel");
+  const [resourceUri, setResourceUri] = useState("ui://hello_app_panel");
   const [logToConsole, setLogToConsole] = useState(true);
 
   const sandboxPermissions = useMemo(
@@ -434,7 +434,7 @@ export default function HostPanel({ serverUrlMasked }: Props) {
       <section>
         <h2>Read custom resource</h2>
         <label>
-          Resource URI
+          Resource URI (e.g., ui://hello_app_panel)
           <input
             type="text"
             value={resourceUri}
