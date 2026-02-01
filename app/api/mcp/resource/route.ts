@@ -1,6 +1,8 @@
 import { readResource } from "@/lib/mcpClient";
 import { extractTextFromMcpResponse } from "@/lib/mcpParsing";
 
+export const dynamic = "force-dynamic";
+
 const DEFAULT_RESOURCE_ID = "hello_app_panel";
 
 export async function GET() {

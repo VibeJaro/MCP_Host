@@ -1,6 +1,8 @@
 import { readResource } from "@/lib/mcpClient";
 import { extractTextFromMcpResponse } from "@/lib/mcpParsing";
 
+export const dynamic = "force-dynamic";
+
 type RequestBody = {
   uri?: string;
 };

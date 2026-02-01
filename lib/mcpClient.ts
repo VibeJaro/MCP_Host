@@ -7,14 +7,35 @@ function getServerUrl(): string {
   return MCP_SERVER_URL;
 }
 
+const MCP_ACCEPT_HEADER = "application/json, text/event-stream";
+
+function parseMcpResponse(payload: string, contentType: string | null): unknown {
+  if (contentType?.includes("text/event-stream")) {
+    const dataLines = payload
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.replace(/^data:\s?/, ""));
+
+    const lastPayload = dataLines.at(-1);
+    if (!lastPayload) {
+      throw new Error("MCP response was empty");
+    }
+    return JSON.parse(lastPayload);
+  }
+
+  return JSON.parse(payload);
+}
+
 async function requestMcp(method: string, params: Record<string, unknown>): Promise<unknown> {
   const serverUrl = getServerUrl();
+  const headers = new Headers();
+  headers.set("Accept", MCP_ACCEPT_HEADER);
+  headers.set("Content-Type", "application/json");
+
   const response = await fetch(serverUrl, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      accept: "application/json, text/event-stream"
-    },
+    headers,
     body: JSON.stringify({
       jsonrpc: "2.0",
       id: crypto.randomUUID(),
@@ -29,7 +50,7 @@ async function requestMcp(method: string, params: Record<string, unknown>): Prom
   }
 
   try {
-    return JSON.parse(text);
+    return parseMcpResponse(text, response.headers.get("content-type"));
   } catch (error) {
     throw new Error("MCP response was not valid JSON");
   }
