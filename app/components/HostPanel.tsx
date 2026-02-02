@@ -202,11 +202,13 @@ export default function HostPanel({ serverUrlMasked, dashboardServerUrlMasked }:
             </div>
           </div>
 
-          <div className="suggestions">
-            <button className="chip" onClick={handleOpenDashboard} disabled={busy}>
-              Öffne die Übersicht
-            </button>
-          </div>
+          {!chatStarted && (
+            <div className="suggestions">
+              <button className="chip" onClick={handleOpenDashboard} disabled={busy}>
+                Öffne die Übersicht
+              </button>
+            </div>
+          )}
 
           {chatStarted && (
             <>
