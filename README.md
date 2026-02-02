@@ -25,6 +25,9 @@ Open `http://localhost:3000`.
 - `GET /api/health` → `{ ok: true }`
 - `POST /api/mcp/call-hello` → calls `hello_world` tool
 - `GET /api/mcp/resource` → loads the MCP resource
+- `POST /api/mcp/app-bridge` → proxies MCP App JSON-RPC tool/resource calls to the primary server
+- `POST /api/mcp/dashboard/app-bridge` → proxies MCP App calls to the dashboard server
+- `POST /api/mcp/dashboard/custom/app-bridge` → proxies MCP App calls to a custom dashboard server URL
 
 ## Test flow
 
@@ -38,6 +41,12 @@ Open `http://localhost:3000`.
 
 The host layout now allows wider dashboards (up to 1280px), and the embedded MCP App iframe targets a
 taller view (min-height 560px, ~70vh) to better fit large dashboards.
+
+## MCP App interactivity
+
+The host now forwards MCP App postMessage JSON-RPC requests (for example, `tools/call`) from the
+embedded iframe to the configured MCP server. This enables buttons like **Status aktualisieren** in
+app UIs to invoke tools through the host instead of timing out.
 
 ## Build
 
