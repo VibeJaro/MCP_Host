@@ -37,6 +37,13 @@ export default function HostPanel({ serverUrlMasked, dashboardServerUrlMasked }:
   const [dashboardHelloState, setDashboardHelloState] = useState<ResponseState>(emptyState);
   const [dashboardResourceState, setDashboardResourceState] =
     useState<ResourceState>(emptyResourceState);
+  const [dashboardCustomUrl, setDashboardCustomUrl] = useState(
+    "https://dashboard-mcp.vercel.app/api/mcp"
+  );
+  const [dashboardCustomHelloState, setDashboardCustomHelloState] =
+    useState<ResponseState>(emptyState);
+  const [dashboardCustomResourceState, setDashboardCustomResourceState] =
+    useState<ResourceState>(emptyResourceState);
   const [toolsListState, setToolsListState] = useState<ResponseState>(emptyState);
   const [resourcesListState, setResourcesListState] = useState<ResponseState>(emptyState);
   const [customToolState, setCustomToolState] = useState<ResponseState>(emptyState);
@@ -123,6 +130,51 @@ export default function HostPanel({ serverUrlMasked, dashboardServerUrlMasked }:
       const message = error instanceof Error ? error.message : "Unknown error";
       setDashboardHelloState({ text: "", raw: { error: message } });
       setDashboardResourceState({ html: "", raw: { error: message } });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const loadCustomDashboardHelloUi = async () => {
+    if (!dashboardCustomUrl.trim()) {
+      setDashboardCustomHelloState({ text: "", raw: { error: "Server URL is required" } });
+      setDashboardCustomResourceState({ html: "", raw: { error: "Server URL is required" } });
+      return;
+    }
+    setBusy("dashboard-custom-hello");
+    try {
+      const trimmedUrl = dashboardCustomUrl.trim();
+      const helloResponse = await fetch("/api/mcp/dashboard/custom/hello", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ serverUrl: trimmedUrl })
+      });
+      const helloData = (await helloResponse.json()) as ResponseState;
+      setDashboardCustomHelloState({ text: helloData.text ?? "", raw: helloData.raw });
+      logDebug("custom dashboard_mcp_hello response", { serverUrl: trimmedUrl, helloData });
+
+      const resourceResponse = await fetch("/api/mcp/dashboard/custom/resource", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ serverUrl: trimmedUrl })
+      });
+      const resourceData = (await resourceResponse.json()) as {
+        html?: string;
+        raw?: unknown;
+        mimeType?: string;
+        uri?: string;
+      };
+      setDashboardCustomResourceState({
+        html: resourceData.html ?? "",
+        raw: resourceData.raw ?? null,
+        mimeType: resourceData.mimeType,
+        uri: resourceData.uri
+      });
+      logDebug("custom dashboard ui resource response", { serverUrl: trimmedUrl, resourceData });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setDashboardCustomHelloState({ text: "", raw: { error: message } });
+      setDashboardCustomResourceState({ html: "", raw: { error: message } });
     } finally {
       setBusy(null);
     }
@@ -359,6 +411,46 @@ export default function HostPanel({ serverUrlMasked, dashboardServerUrlMasked }:
         </pre>
         <p>Raw resource response:</p>
         <pre>{JSON.stringify(dashboardResourceState.raw, null, 2)}</pre>
+      </section>
+
+      <section>
+        <h2>Tool: dashboard_mcp_hello (custom URL)</h2>
+        <p>
+          Use this to test dashboard MCP servers deployed on per-branch Vercel URLs. Enter the
+          server URL (ending with <code>/api/mcp</code>) and load the tool + UI below.
+        </p>
+        <label>
+          Dashboard MCP server URL
+          <input
+            type="url"
+            placeholder="https://your-branch.vercel.app/api/mcp"
+            value={dashboardCustomUrl}
+            onChange={(event) => setDashboardCustomUrl(event.target.value)}
+          />
+        </label>
+        <button onClick={loadCustomDashboardHelloUi} disabled={busy !== null}>
+          Load dashboard_mcp_hello + UI (custom)
+        </button>
+        <p>Response text:</p>
+        <pre>{dashboardCustomHelloState.text || "(no text)"}</pre>
+        <p>Raw response:</p>
+        <pre>{JSON.stringify(dashboardCustomHelloState.raw, null, 2)}</pre>
+        <p>Preview:</p>
+        {renderAppPreview(dashboardCustomResourceState, "(no html/text)")}
+        <p>Resource metadata:</p>
+        <pre>
+          {JSON.stringify(
+            {
+              mimeType: dashboardCustomResourceState.mimeType ?? null,
+              uri: dashboardCustomResourceState.uri ?? null,
+              size: dashboardCustomResourceState.html.length
+            },
+            null,
+            2
+          )}
+        </pre>
+        <p>Raw resource response:</p>
+        <pre>{JSON.stringify(dashboardCustomResourceState.raw, null, 2)}</pre>
       </section>
 
       <section>

@@ -7,6 +7,7 @@ Minimal Next.js (App Router) host for testing an MCP server.
 | Name | Required | Default | Description |
 | --- | --- | --- | --- |
 | `MCP_SERVER_URL` | ✅ | n/a | Base URL for your MCP server (e.g. `http://localhost:3001/mcp`). |
+| `DASHBOARD_MCP_SERVER_URL` | ❌ | `https://dashboard-mcp.vercel.app/api/mcp` | Base URL for the hosted MCP dashboard server. |
 | `MCP_RESOURCE_ID` | ❌ | `ui://hello_app_panel` | Resource id/URI to load from the MCP server. |
 | `OPENAI_API_KEY` | ❌ | n/a | Not required for this project. |
 
@@ -31,6 +32,7 @@ Open `http://localhost:3000`.
 2. Start the dev server (`npm run dev`).
 3. Click **Call hello_world** to verify tool calls.
 4. Click **Load MCP resource** to verify resource loading.
+5. Use **dashboard_mcp_hello (custom URL)** to test a per-branch Vercel deployment by pasting its `/api/mcp` URL.
 
 ## Build
 

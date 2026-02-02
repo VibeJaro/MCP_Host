@@ -77,6 +77,14 @@ async function requestDashboardMcp(
   );
 }
 
+async function requestDashboardMcpAt(
+  serverUrl: string,
+  method: string,
+  params: Record<string, unknown>
+): Promise<unknown> {
+  return requestMcpAt(getServerUrl(serverUrl, "Dashboard server URL"), method, params);
+}
+
 export async function callToolHelloWorld(): Promise<unknown> {
   return requestMcp("tools/call", {
     name: "hello_world",
@@ -114,6 +122,19 @@ export async function callDashboardHelloTool(): Promise<unknown> {
 
 export async function readDashboardHelloResource(): Promise<unknown> {
   return requestDashboardMcp("resources/read", {
+    uri: DASHBOARD_RESOURCE_URI
+  });
+}
+
+export async function callDashboardHelloToolAt(serverUrl: string): Promise<unknown> {
+  return requestDashboardMcpAt(serverUrl, "tools/call", {
+    name: "dashboard_mcp_hello",
+    arguments: {}
+  });
+}
+
+export async function readDashboardHelloResourceAt(serverUrl: string): Promise<unknown> {
+  return requestDashboardMcpAt(serverUrl, "resources/read", {
     uri: DASHBOARD_RESOURCE_URI
   });
 }
