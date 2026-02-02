@@ -85,6 +85,28 @@ async function requestDashboardMcpAt(
   return requestMcpAt(getServerUrl(serverUrl, "Dashboard server URL"), method, params);
 }
 
+export async function callMcpMethod(
+  method: string,
+  params: Record<string, unknown>
+): Promise<unknown> {
+  return requestMcp(method, params);
+}
+
+export async function callDashboardMcpMethod(
+  method: string,
+  params: Record<string, unknown>
+): Promise<unknown> {
+  return requestDashboardMcp(method, params);
+}
+
+export async function callMcpMethodAt(
+  serverUrl: string,
+  method: string,
+  params: Record<string, unknown>
+): Promise<unknown> {
+  return requestMcpAt(serverUrl, method, params);
+}
+
 export async function callToolHelloWorld(): Promise<unknown> {
   return requestMcp("tools/call", {
     name: "hello_world",

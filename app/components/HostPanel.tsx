@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import McpAppIframe from "@/app/components/McpAppIframe";
 import { isRecord } from "@/lib/mcpParsing";
 
 type Props = {
@@ -336,7 +337,12 @@ export default function HostPanel({ serverUrlMasked, dashboardServerUrlMasked }:
     }
   };
 
-  const renderAppPreview = (state: ResourceState, emptyLabel: string) => {
+  const renderAppPreview = (
+    state: ResourceState,
+    emptyLabel: string,
+    proxyEndpoint: string,
+    serverUrl?: string
+  ) => {
     if (!state.html) {
       return <p>{emptyLabel}</p>;
     }
@@ -351,14 +357,12 @@ export default function HostPanel({ serverUrlMasked, dashboardServerUrlMasked }:
     }
 
     return (
-      <div className="app-preview">
-        <iframe
-          title="MCP App Preview"
-          sandbox={sandboxPermissions}
-          referrerPolicy="no-referrer"
-          srcDoc={state.html}
-        />
-      </div>
+      <McpAppIframe
+        html={state.html}
+        proxyEndpoint={proxyEndpoint}
+        sandboxPermissions={sandboxPermissions}
+        serverUrl={serverUrl}
+      />
     );
   };
 
@@ -396,7 +400,7 @@ export default function HostPanel({ serverUrlMasked, dashboardServerUrlMasked }:
         <p>Raw response:</p>
         <pre>{JSON.stringify(dashboardHelloState.raw, null, 2)}</pre>
         <p>Preview:</p>
-        {renderAppPreview(dashboardResourceState, "(no html/text)")}
+        {renderAppPreview(dashboardResourceState, "(no html/text)", "/api/mcp/dashboard/app-bridge")}
         <p>Resource metadata:</p>
         <pre>
           {JSON.stringify(
@@ -436,7 +440,12 @@ export default function HostPanel({ serverUrlMasked, dashboardServerUrlMasked }:
         <p>Raw response:</p>
         <pre>{JSON.stringify(dashboardCustomHelloState.raw, null, 2)}</pre>
         <p>Preview:</p>
-        {renderAppPreview(dashboardCustomResourceState, "(no html/text)")}
+        {renderAppPreview(
+          dashboardCustomResourceState,
+          "(no html/text)",
+          "/api/mcp/dashboard/custom/app-bridge",
+          dashboardCustomUrl.trim() || undefined
+        )}
         <p>Resource metadata:</p>
         <pre>
           {JSON.stringify(
@@ -459,7 +468,7 @@ export default function HostPanel({ serverUrlMasked, dashboardServerUrlMasked }:
           Load MCP resource
         </button>
         <p>Preview:</p>
-        {renderAppPreview(resourceState, "(no html/text)")}
+        {renderAppPreview(resourceState, "(no html/text)", "/api/mcp/app-bridge")}
         <p>HTML/Text:</p>
         <pre>{resourceState.html || "(no html/text)"}</pre>
         <p>Resource metadata:</p>
@@ -526,7 +535,7 @@ export default function HostPanel({ serverUrlMasked, dashboardServerUrlMasked }:
           Load UI resource
         </button>
         <p>Preview:</p>
-        {renderAppPreview(uiResourceState, "(no UI resource loaded)")}
+        {renderAppPreview(uiResourceState, "(no UI resource loaded)", "/api/mcp/app-bridge")}
         <p>Resource metadata:</p>
         <pre>
           {JSON.stringify(
@@ -602,7 +611,7 @@ export default function HostPanel({ serverUrlMasked, dashboardServerUrlMasked }:
           Read resource
         </button>
         <p>Preview:</p>
-        {renderAppPreview(customResourceState, "(no html/text)")}
+        {renderAppPreview(customResourceState, "(no html/text)", "/api/mcp/app-bridge")}
         <p>HTML/Text:</p>
         <pre>{customResourceState.html || "(no html/text)"}</pre>
         <p>Resource metadata:</p>
