@@ -33,14 +33,14 @@ Open `http://localhost:3000`.
 
 1. Set `MCP_SERVER_URL` in your environment.
 2. Start the dev server (`npm run dev`).
-3. Click **Call hello_world** to verify tool calls.
-4. Click **Load MCP resource** to verify resource loading.
-5. Use **dashboard_mcp_hello (custom URL)** to test a per-branch Vercel deployment by pasting its `/api/mcp` URL.
+3. Open the chat-style UI and click **Öffne die Übersicht** to invoke `dashboard_mcp_hello`.
+4. Use the **Custom MCP-Server URL** field + toggle to test a Vercel preview deployment.
+5. Expand **Debug-Daten anzeigen** to inspect raw MCP responses when needed.
 
 ## UI sizing
 
-The host layout now allows wider dashboards (up to 1280px), and the embedded MCP App iframe targets a
-taller view (min-height 560px, ~70vh) to better fit large dashboards.
+The host layout now allows wider dashboards (up to 1100px), and the embedded MCP App iframe targets a
+larger view (min-height 560px, ~70vh) to better fit large dashboards.
 
 ## MCP App interactivity
 
