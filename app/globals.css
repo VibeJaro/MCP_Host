@@ -211,6 +211,10 @@ select:focus {
   gap: 12px;
 }
 
+.message.bot {
+  align-items: stretch;
+}
+
 .message.user {
   justify-content: flex-end;
 }
@@ -250,6 +254,8 @@ select:focus {
   border: 1px solid #e2e8f0;
   padding: 0;
   overflow: hidden;
+  width: 100%;
+  max-width: none;
 }
 
 .panel-header {
