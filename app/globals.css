@@ -11,7 +11,7 @@ body {
 }
 
 main {
-  max-width: 900px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 32px 20px 60px;
 }
@@ -84,11 +84,14 @@ pre {
   border-radius: 10px;
   overflow: hidden;
   background: #0f0f0f;
+  min-height: 560px;
 }
 
 .app-preview iframe {
   width: 100%;
-  min-height: 320px;
+  min-height: 560px;
+  height: 70vh;
+  max-height: 900px;
   border: none;
   background: #0f0f0f;
 }

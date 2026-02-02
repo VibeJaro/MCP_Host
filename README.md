@@ -34,6 +34,11 @@ Open `http://localhost:3000`.
 4. Click **Load MCP resource** to verify resource loading.
 5. Use **dashboard_mcp_hello (custom URL)** to test a per-branch Vercel deployment by pasting its `/api/mcp` URL.
 
+## UI sizing
+
+The host layout now allows wider dashboards (up to 1280px), and the embedded MCP App iframe targets a
+taller view (min-height 560px, ~70vh) to better fit large dashboards.
+
 ## Build
 
 ```bash
