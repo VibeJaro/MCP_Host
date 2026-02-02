@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { isRecord } from "@/lib/mcpParsing";
 
@@ -57,6 +57,7 @@ export default function HostPanel({ serverUrlMasked, dashboardServerUrlMasked }:
   const [toolArgs, setToolArgs] = useState("{\n  \n}");
   const [resourceUri, setResourceUri] = useState("ui://hello_app_panel");
   const [logToConsole, setLogToConsole] = useState(true);
+  const appIframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const sandboxPermissions = useMemo(
     () => ["allow-scripts", "allow-forms", "allow-modals", "allow-popups"].join(" "),
@@ -362,6 +363,210 @@ export default function HostPanel({ serverUrlMasked, dashboardServerUrlMasked }:
     );
   };
 
+  const renderInteractiveAppPreview = (state: ResourceState, emptyLabel: string) => {
+    if (!state.html) {
+      return <p>{emptyLabel}</p>;
+    }
+
+    if (!state.mimeType?.toLowerCase().includes("text/html")) {
+      return (
+        <div>
+          <p>Received non-HTML content (mimeType: {state.mimeType ?? "unknown"}).</p>
+          <pre>{state.html}</pre>
+        </div>
+      );
+    }
+
+    return (
+      <div className="app-preview">
+        <iframe
+          title="MCP App Preview"
+          sandbox={sandboxPermissions}
+          referrerPolicy="no-referrer"
+          srcDoc={state.html}
+          ref={appIframeRef}
+        />
+      </div>
+    );
+  };
+
+  useEffect(() => {
+    const postMessageToApp = (message: unknown) => {
+      const targetWindow = appIframeRef.current?.contentWindow;
+      if (!targetWindow) {
+        return;
+      }
+      targetWindow.postMessage(message, "*");
+    };
+
+    const handleRpcMessage = async (event: MessageEvent) => {
+      if (event.source !== appIframeRef.current?.contentWindow) {
+        return;
+      }
+
+      const payload =
+        typeof event.data === "string"
+          ? (() => {
+              try {
+                return JSON.parse(event.data) as unknown;
+              } catch {
+                return null;
+              }
+            })()
+          : event.data;
+
+      if (!isRecord(payload)) {
+        return;
+      }
+
+      if (payload.jsonrpc !== "2.0" || typeof payload.method !== "string") {
+        return;
+      }
+
+      const requestId = payload.id;
+      const hasResponseId = typeof requestId === "string" || typeof requestId === "number";
+
+      const sendResult = (result: unknown) => {
+        if (!hasResponseId) {
+          return;
+        }
+        postMessageToApp({ jsonrpc: "2.0", id: requestId, result });
+      };
+
+      const sendError = (code: number, message: string, data?: unknown) => {
+        if (!hasResponseId) {
+          return;
+        }
+        postMessageToApp({
+          jsonrpc: "2.0",
+          id: requestId,
+          error: data === undefined ? { code, message } : { code, message, data }
+        });
+      };
+
+      if (payload.method === "ui/initialize") {
+        sendResult({
+          protocolVersion: "0.1.0",
+          hostInfo: { name: "MCP Host", version: "0.1.0" },
+          capabilities: {
+            tools: { call: true },
+            resources: { read: true },
+            ui: { notify: true }
+          }
+        });
+        return;
+      }
+
+      if (payload.method === "ui/notify") {
+        if (isRecord(payload.params)) {
+          logDebug("ui/notify", payload.params);
+        } else {
+          logDebug("ui/notify", payload);
+        }
+        return;
+      }
+
+      if (payload.method === "tools/call") {
+        const params = isRecord(payload.params) ? payload.params : null;
+        const name = params && typeof params.name === "string" ? params.name : "";
+        const args = params && isRecord(params.arguments) ? params.arguments : {};
+
+        if (!name) {
+          sendError(-32602, "Invalid params: tool name is required.");
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/mcp/call-tool", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ name, arguments: args })
+          });
+          const data = (await response.json()) as { raw?: unknown };
+          const raw = isRecord(data) ? data.raw : undefined;
+          if (isRecord(raw) && raw.error) {
+            const error = raw.error;
+            if (isRecord(error)) {
+              sendError(
+                typeof error.code === "number" ? error.code : -32603,
+                typeof error.message === "string" ? error.message : "Tool call failed.",
+                error.data
+              );
+            } else {
+              sendError(-32603, "Tool call failed.", error);
+            }
+            return;
+          }
+          if (!response.ok) {
+            sendError(-32603, "Tool call failed.", raw ?? data);
+            return;
+          }
+          sendResult(isRecord(raw) && "result" in raw ? raw.result : raw ?? null);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Tool call failed.";
+          sendError(-32603, message);
+        }
+        return;
+      }
+
+      if (payload.method === "resources/read") {
+        const params = isRecord(payload.params) ? payload.params : null;
+        const uri = params && typeof params.uri === "string" ? params.uri : "";
+
+        if (!uri) {
+          sendError(-32602, "Invalid params: resource uri is required.");
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/mcp/read-resource", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ uri })
+          });
+          const data = (await response.json()) as { raw?: unknown };
+          const raw = isRecord(data) ? data.raw : undefined;
+          if (isRecord(raw) && raw.error) {
+            const error = raw.error;
+            if (isRecord(error)) {
+              sendError(
+                typeof error.code === "number" ? error.code : -32603,
+                typeof error.message === "string" ? error.message : "Resource read failed.",
+                error.data
+              );
+            } else {
+              sendError(-32603, "Resource read failed.", error);
+            }
+            return;
+          }
+          if (!response.ok) {
+            sendError(-32603, "Resource read failed.", raw ?? data);
+            return;
+          }
+          sendResult(isRecord(raw) && "result" in raw ? raw.result : raw ?? null);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Resource read failed.";
+          sendError(-32603, message);
+        }
+        return;
+      }
+
+      if (payload.method.startsWith("ui/")) {
+        logDebug("unsupported ui method", payload);
+        return;
+      }
+
+      sendError(-32601, `Method not found: ${payload.method}`);
+    };
+
+    const onMessage = (event: MessageEvent) => {
+      void handleRpcMessage(event);
+    };
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [logToConsole]);
+
   return (
     <main>
       <h1>MCP Host</h1>
@@ -526,7 +731,7 @@ export default function HostPanel({ serverUrlMasked, dashboardServerUrlMasked }:
           Load UI resource
         </button>
         <p>Preview:</p>
-        {renderAppPreview(uiResourceState, "(no UI resource loaded)")}
+        {renderInteractiveAppPreview(uiResourceState, "(no UI resource loaded)")}
         <p>Resource metadata:</p>
         <pre>
           {JSON.stringify(
